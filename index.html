@@ -1,0 +1,1819 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The OSCE Runner</title>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Inter:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        /* General Body Styles */
+        body {
+            font-family: 'Inter', sans-serif; /* Fallback */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); /* Light blue gradient background */
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+            overflow: hidden; /* Prevent body scroll */
+            image-rendering: pixelated; /* Ensures pixel art looks sharp */
+            image-rendering: -moz-crisp-edges;
+            image-rendering: -webkit-optimize-contrast;
+        }
+
+        /* Pixel font for game titles/headers */
+        h1, h2, #map-instructions {
+            font-family: 'Press Start 2P', cursive;
+            text-shadow: 2px 2px 0px rgba(0,0,0,0.1);
+        }
+
+        /* Game Container */
+        .game-container {
+            background-color: #ffffff;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+            text-align: center;
+            width: 100%;
+            max-width: 700px; /* Max width for desktop */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 500px;
+            position: relative; /* For absolute positioning of children */
+            overflow: hidden; /* Hide overflowing content like draggable */
+            box-sizing: border-box;
+        }
+
+        /* Screen Elements */
+        .screen {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            transition: opacity 0.5s ease-in-out;
+            position: absolute; /* Position screens absolutely within container */
+            top: 0;
+            left: 0;
+            padding: 30px; /* Padding for screen content */
+            box-sizing: border-box;
+        }
+
+        .screen.hidden {
+            opacity: 0;
+            pointer-events: none; /* Disable interaction when hidden */
+            z-index: -1;
+        }
+
+        .screen.active {
+            opacity: 1;
+            pointer-events: auto;
+            z-index: 1;
+        }
+
+        /* Headings */
+        h1 {
+            color: #1A237E; /* Deep Indigo */
+            margin-bottom: 20px;
+            font-size: 2.2em;
+        }
+
+        h2 {
+            color: #1A237E; /* Deep Indigo */
+            margin-bottom: 15px;
+            font-size: 1.6em;
+        }
+
+        p {
+            color: #3F51B5; /* Indigo 500 */
+            line-height: 1.6;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+
+        /* Buttons (Pixel Style) */
+        .btn {
+            background: linear-gradient(135deg, #1E88E5 0%, #1565C0 100%); /* Blue gradient */
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 5px; /* More angular corners */
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: all 0.1s ease-in-out; /* Faster, more pixel-like response */
+            margin-top: 20px;
+            box-shadow: 3px 3px 0px rgba(0, 0, 0, 0.3); /* Pixel shadow */
+            position: relative;
+            z-index: 1;
+            border-bottom: 3px solid #0D47A1; /* Simulate depth */
+            border-right: 3px solid #0D47A1;
+            font-family: 'Press Start 2P', cursive;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .btn:hover {
+            transform: translate(1px, 1px); /* Shift on hover */
+            box-shadow: 2px 2px 0px rgba(0, 0, 0, 0.3);
+            border-bottom: 2px solid #0D47A1;
+            border-right: 2px solid #0D47A1;
+        }
+
+        .btn:active {
+            transform: translate(3px, 3px); /* Press down */
+            box-shadow: 0 0 0px rgba(0, 0, 0, 0.3);
+            border-bottom: 0px solid #0D47A1;
+            border-right: 0px solid #0D47A1;
+        }
+
+        .btn:disabled {
+            background: #cccccc;
+            border-bottom: 3px solid #999999;
+            border-right: 3px solid #999999;
+            cursor: not-allowed;
+            box-shadow: none;
+            transform: none;
+        }
+
+        /* Game Specific Elements */
+        .game-header {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            font-weight: bold;
+            color: #1A237E; /* Deep Indigo */
+            position: absolute;
+            top: 20px;
+            left: 0;
+            padding: 0 30px;
+            box-sizing: border-box;
+            font-family: 'Press Start 2P', cursive;
+            font-size: 0.9em;
+        }
+
+        .station-info, .timer-info {
+            background-color: #E3F2FD; /* Lightest Blue */
+            padding: 8px 15px;
+            border-radius: 8px;
+            font-size: 1.1em;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+
+        /* Pixel Character SVG - for start/task/celebration screens */
+        .character-svg {
+            margin-bottom: 20px;
+            max-width: 150px;
+            height: auto;
+            position: relative;
+            z-index: 0;
+            image-rendering: pixelated;
+        }
+
+        /* Task Specific Styles */
+        .task-area {
+            flex-grow: 1; /* Allows task area to take up available space */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            margin-top: 60px; /* Space for header */
+            margin-bottom: 20px; /* Space for next button */
+        }
+
+        /* Map Screen Styles */
+        #osce-map {
+            width: 90%;
+            height: 350px; /* Fixed height for map area */
+            border: 4px solid #1A237E; /* Deep Indigo border */
+            border-radius: 15px;
+            background-color: #BBDEFB; /* Light Blue background */
+            position: relative;
+            margin-top: 20px;
+            overflow: hidden; /* Keep character within bounds */
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.1);
+        }
+
+        .map-character-svg {
+            position: absolute;
+            width: 60px; /* Smaller character on map */
+            height: 72px; /* Maintain aspect ratio */
+            transform: translate(-50%, -50%); /* Center character on its coordinates */
+            transition: left 1s linear, top 1s linear; /* Smooth linear movement for pixel art */
+            z-index: 5; /* Above stations */
+            filter: drop-shadow(2px 2px 2px rgba(0,0,0,0.2));
+            image-rendering: pixelated;
+            top: var(--char-y, 50%); /* CSS variables for dynamic positioning */
+            left: var(--char-x, 50%);
+        }
+
+        .station-marker {
+            position: absolute;
+            width: 70px; /* Larger hit area */
+            height: 70px;
+            background-color: #42A5F5; /* Light Blue */
+            border: 3px solid #1E88E5; /* Blue */
+            border-radius: 10px; /* Slightly rounded squares */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            color: white;
+            font-size: 1.8em;
+            cursor: pointer;
+            transition: all 0.1s ease-in-out; /* Faster pixel response */
+            box-shadow: 3px 3px 0px rgba(0,0,0,0.2); /* Pixel shadow */
+            border-bottom: 3px solid #1E88E5;
+            border-right: 3px solid #1E88E5;
+            z-index: 2; /* Below character */
+            font-family: 'Press Start 2P', cursive;
+        }
+
+        .station-marker:hover {
+            transform: translate(1px, 1px);
+            box-shadow: 2px 2px 0px rgba(0,0,0,0.2);
+            border-bottom: 2px solid #1E88E5;
+            border-right: 2px solid #1E88E5;
+        }
+
+        .station-marker.visited {
+            background-color: #81C784; /* Light Green for visited */
+            border-color: #4CAF50; /* Green */
+            cursor: default;
+            box-shadow: 2px 2px 0px rgba(0,0,0,0.1);
+            filter: brightness(0.9);
+            border-bottom: 3px solid #4CAF50;
+            border-right: 3px solid #4CAF50;
+        }
+
+        .station-marker.completed-correctly {
+            background-color: #4CAF50; /* Green for correct completion */
+            border-color: #2E7D32; /* Dark Green */
+            border-bottom: 3px solid #2E7D32;
+            border-right: 3px solid #2E7D32;
+        }
+
+        .station-marker.completed-incorrectly {
+            background-color: #EF5350; /* Red for incorrect completion */
+            border-color: #D32F2F; /* Dark Red */
+            border-bottom: 3px solid #D32F2F;
+            border-right: 3px solid #D32F2F;
+        }
+
+        .station-marker.disabled {
+            background-color: #cccccc;
+            border-color: #bbbbbb;
+            cursor: not-allowed;
+            opacity: 0.7;
+            box-shadow: none;
+            border: 3px solid #bbbbbb;
+        }
+
+        #map-instructions {
+            margin-top: 25px;
+            font-size: 1.0em;
+            color: #1A237E; /* Deep Indigo */
+            font-weight: bold;
+        }
+
+
+        /* Clicker Task */
+        #clicker-button {
+            background-color: #28a745;
+            color: white;
+            padding: 20px 40px;
+            border-radius: 10px;
+            font-size: 1.5em;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+            box-shadow: 0 4px 10px rgba(40, 167, 69, 0.3);
+            border: none;
+        }
+        #clicker-button:hover {
+            background-color: #218838;
+        }
+        #click-count {
+            margin-top: 10px;
+            font-size: 1.2em;
+            color: #333;
+        }
+
+        /* Drag & Drop Puzzle */
+        #puzzle-container {
+            width: 200px;
+            height: 200px;
+            border: 2px dashed #1E88E5; /* Blue */
+            border-radius: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-top: 20px;
+            position: relative;
+            background-color: #E3F2FD; /* Lightest Blue */
+            overflow: hidden; /* Crucial for draggable boundary */
+        }
+        #puzzle-piece {
+            width: 80px;
+            height: 80px;
+            background-color: #ffc107; /* Yellow - retained for contrast */
+            border-radius: 8px;
+            cursor: grab;
+            position: absolute; /* Allows dragging within container */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-weight: bold;
+            box-shadow: 0 4px 8px rgba(255, 193, 7, 0.3);
+        }
+        #puzzle-piece:active {
+            cursor: grabbing;
+        }
+
+        /* Multiple Choice */
+        .question-container {
+            margin-top: 20px;
+        }
+        .mc-option {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 12px 20px;
+            margin: 8px 0;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+            text-align: left;
+            width: 100%;
+            max-width: 400px;
+        }
+        .mc-option:hover {
+            background-color: #e9ecef;
+        }
+        .mc-option.selected {
+            background-color: #1E88E5; /* Blue */
+            color: white;
+            border-color: #1E88E5;
+        }
+        .mc-option.correct {
+            background-color: #28a745;
+            color: white;
+            border-color: #28a745;
+        }
+        .mc-option.incorrect {
+            background-color: #dc3545;
+            color: white;
+            border-color: #dc3545;
+        }
+        #mc-feedback {
+            margin-top: 10px;
+            font-weight: bold;
+            min-height: 20px; /* Reserve space */
+        }
+        .llm-button {
+            background: linear-gradient(135deg, #3F51B5 0%, #283593 100%); /* Indigo gradient */
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 15px;
+            box-shadow: 0 4px 10px rgba(63, 81, 181, 0.3);
+        }
+        .llm-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(63, 81, 181, 0.4);
+        }
+        .llm-button:disabled {
+            background: #cccccc;
+            cursor: not-allowed;
+            box-shadow: none;
+            transform: none;
+        }
+
+        /* Typing Task */
+        #typing-input {
+            padding: 12px;
+            font-size: 1.2em;
+            border: 2px solid #ccc;
+            border-radius: 8px;
+            width: 80%;
+            max-width: 400px;
+            box-sizing: border-box;
+            transition: border-color 0.2s ease;
+        }
+        #typing-input:focus {
+            outline: none;
+            border-color: #1E88E5; /* Blue */
+        }
+        #typing-prompt {
+            font-size: 1.3em;
+            margin-bottom: 15px;
+            color: #333;
+            background-color: #E3F2FD; /* Lightest Blue */
+            padding: 10px 20px;
+            border-radius: 8px;
+        }
+        #typing-feedback {
+            margin-top: 10px;
+            font-weight: bold;
+            min-height: 20px;
+        }
+
+        /* Order Clicking Task */
+        .order-buttons-container {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .order-button {
+            background-color: #7986CB; /* Indigo Light */
+            color: white;
+            padding: 15px 25px;
+            border-radius: 10px;
+            font-size: 1.3em;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+            border: none;
+            box-shadow: 0 3px 8px rgba(0,0,0,0.2);
+        }
+        .order-button:hover {
+            background-color: #5C6BC0; /* Indigo */
+        }
+        .order-button.correct-click {
+            background-color: #28a745;
+        }
+        .order-button.incorrect-click {
+            background-color: #dc3545;
+        }
+        #order-feedback {
+            margin-top: 10px;
+            min-height: 20px;
+            font-weight: bold;
+        }
+
+        /* Slider Task */
+        #slider-input {
+            width: 80%;
+            max-width: 400px;
+            margin-top: 20px;
+            -webkit-appearance: none; /* Remove default slider styling */
+            appearance: none;
+            height: 10px;
+            background: #d3d3d3;
+            outline: none;
+            opacity: 0.7;
+            transition: opacity .2s;
+            border-radius: 5px;
+        }
+        #slider-input:hover {
+            opacity: 1;
+        }
+        #slider-input::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 25px;
+            height: 25px;
+            border-radius: 50%;
+            background: #1E88E5; /* Blue */
+            cursor: grab;
+            box-shadow: 0 2px 5px rgba(30,136,229,0.3);
+        }
+        #slider-input::-moz-range-thumb {
+            width: 25px;
+            height: 25px;
+            border-radius: 50%;
+            background: #1E88E5; /* Blue */
+            cursor: grab;
+            box-shadow: 0 2px 5px rgba(30,136,229,0.3);
+        }
+        #slider-value {
+            margin-top: 10px;
+            font-size: 1.2em;
+            color: #333;
+        }
+
+        /* Moving Target Task */
+        #target-area {
+            width: 300px;
+            height: 200px;
+            border: 2px solid #1E88E5; /* Blue */
+            background-color: #E3F2FD; /* Lightest Blue */
+            position: relative;
+            overflow: hidden;
+            border-radius: 10px;
+            margin-top: 20px;
+            box-shadow: 0 5px 15px rgba(30,136,229,0.1);
+        }
+        #moving-target {
+            width: 40px;
+            height: 40px;
+            background-color: #dc3545; /* Red - retained for "hit" contrast */
+            border-radius: 50%;
+            position: absolute;
+            cursor: pointer;
+            transition: background-color 0.1s ease;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-weight: bold;
+            box-shadow: 0 2px 5px rgba(220,53,69,0.3);
+        }
+        #moving-target:hover {
+            background-color: #c82333;
+        }
+
+        /* Matching Task */
+        .matching-container {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-top: 20px;
+            width: 100%;
+            max-width: 400px;
+        }
+        .matching-card {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 15px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.1em;
+            min-height: 60px;
+        }
+        .matching-card:hover {
+            background-color: #e9ecef;
+            transform: translateY(-2px);
+        }
+        .matching-card.selected {
+            background-color: #1E88E5; /* Blue */
+            color: white;
+            border-color: #1E88E5;
+        }
+        .matching-card.matched {
+            background-color: #28a745;
+            color: white;
+            border-color: #28a745;
+            cursor: default;
+            pointer-events: none; /* Disable interaction once matched */
+        }
+        #match-feedback {
+            margin-top: 10px;
+            min-height: 20px;
+            font-weight: bold;
+        }
+
+        /* Celebration Screen */
+        .celebration-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            flex-grow: 1;
+        }
+
+        .celebration-content h1 {
+            color: #FF5722; /* Deep Orange for celebration */
+            font-size: 3.5em;
+            margin-bottom: 20px;
+            text-shadow: 4px 4px 0px rgba(0,0,0,0.2); /* Pixel shadow */
+            animation: pulse 1.5s infinite alternate;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            100% { transform: scale(1.05); }
+        }
+
+        .flower-bouquet-svg {
+            margin-top: 20px;
+            max-width: 200px;
+            height: auto;
+        }
+
+        /* Message Box Styling (for alerts/confirms) */
+        .message-box-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7); /* Darker overlay */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+        .message-box-overlay.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .message-box {
+            background-color: #f0f0f0; /* Light grey */
+            padding: 30px;
+            border-radius: 5px; /* Pixelated look */
+            box-shadow: 5px 5px 0px rgba(0, 0, 0, 0.3); /* Pixel shadow */
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+            transform: translateY(-20px);
+            transition: transform 0.3s ease;
+            border: 3px solid #333; /* Strong border */
+            font-family: 'Inter', sans-serif; /* For message content */
+        }
+        .message-box-overlay.visible .message-box {
+            transform: translateY(0);
+        }
+        .message-box h3 {
+            margin-top: 0;
+            color: #2c3e50;
+            font-size: 1.5em;
+            font-family: 'Press Start 2P', cursive;
+        }
+        .message-box p {
+            margin-bottom: 20px;
+            color: #555;
+        }
+        .message-box-buttons .btn {
+            margin: 0 10px;
+            padding: 10px 20px;
+            font-size: 1em;
+            margin-top: 0; /* Override default button margin-top */
+        }
+
+        /* Responsive Adjustments */
+        @media (max-width: 600px) {
+            .game-container {
+                padding: 15px;
+                min-height: 400px;
+            }
+            h1 {
+                font-size: 1.8em;
+            }
+            h2 {
+                font-size: 1.3em;
+            }
+            p {
+                font-size: 0.9em;
+            }
+            .btn {
+                padding: 10px 20px;
+                font-size: 0.9em;
+            }
+            .game-header {
+                padding: 0 15px;
+                font-size: 0.8em;
+            }
+            .station-info, .timer-info {
+                font-size: 0.8em;
+                padding: 5px 10px;
+            }
+            #clicker-button {
+                padding: 12px 25px;
+                font-size: 1em;
+            }
+            #puzzle-container {
+                width: 120px;
+                height: 120px;
+            }
+            #puzzle-piece {
+                width: 50px;
+                height: 50px;
+            }
+            .mc-option {
+                padding: 8px 12px;
+                font-size: 0.85em;
+            }
+            #typing-input {
+                padding: 8px;
+                font-size: 0.9em;
+            }
+            #typing-prompt {
+                font-size: 1em;
+            }
+            .order-button {
+                padding: 10px 18px;
+                font-size: 1em;
+            }
+            #target-area {
+                width: 200px;
+                height: 150px;
+            }
+            #moving-target {
+                width: 30px;
+                height: 30px;
+            }
+            .matching-card {
+                padding: 8px;
+                font-size: 0.85em;
+            }
+            .celebration-content h1 {
+                font-size: 2.5em;
+            }
+            .flower-bouquet-svg {
+                max-width: 120px;
+            }
+            #osce-map {
+                height: 280px;
+            }
+            .station-marker {
+                width: 55px;
+                height: 55px;
+                font-size: 1.3em;
+            }
+            .map-character-svg {
+                width: 50px;
+                height: 60px;
+            }
+            #map-instructions {
+                font-size: 0.9em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <!-- Message Box for alerts/confirms -->
+        <div id="message-box-overlay" class="message-box-overlay">
+            <div class="message-box">
+                <h3 id="message-box-title"></h3>
+                <p id="message-box-content"></p>
+                <div class="message-box-buttons">
+                    <button class="btn" id="message-box-ok">OK</button>
+                    <button class="btn" id="message-box-cancel" style="display: none;">Cancel</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Start Screen -->
+        <div id="start-screen" class="screen active">
+            <svg class="character-svg" viewBox="0 0 100 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <!-- Pixelated Girl Character: No Hijab, Lab Coat, Glasses, Name Tag -->
+                <!-- Hair (example: short brown hair) -->
+                <rect x="30" y="0" width="40" height="20" fill="#8B4513"/> <!-- Top hair -->
+                <rect x="25" y="15" width="10" height="20" fill="#8B4513"/> <!-- Side hair left -->
+                <rect x="65" y="15" width="10" height="20" fill="#8B4513"/> <!-- Side hair right -->
+
+                <!-- Face Area (skin tone) -->
+                <rect x="38" y="20" width="24" height="28" fill="#fce4ec"/>
+                <!-- Glasses (simple lines/rects) -->
+                <rect x="36" y="27" width="8" height="2" fill="#333"/>
+                <rect x="56" y="27" width="8" height="2" fill="#333"/>
+                <rect x="44" y="27" width="12" height="2" fill="#333"/>
+                <!-- Eyes (small pixels) -->
+                <rect x="40" y="29" width="3" height="3" fill="#000"/>
+                <rect x="57" y="29" width="3" height="3" fill="#000"/>
+                <!-- Mouth (single pixel line) -->
+                <rect x="45" y="38" width="10" height="2" fill="#333"/>
+
+                <!-- Body - Lab Coat -->
+                <rect x="30" y="48" width="40" height="72" fill="#f0f0f0"/> <!-- Main lab coat body -->
+                <rect x="32" y="50" width="5" height="40" fill="#c0c0c0"/> <!-- Left lapel (shading) -->
+                <rect x="63" y="50" width="5" height="40" fill="#c0c0c0"/> <!-- Right lapel (shading) -->
+                <rect x="35" y="50" width="30" height="65" fill="#ffffff"/> <!-- Inner lab coat area -->
+
+                <!-- Undershirt (small peek) -->
+                <rect x="40" y="48" width="20" height="5" fill="#a5d6a7"/>
+
+                <!-- Name Tag -->
+                <rect x="50" y="58" width="20" height="10" fill="#f0f0f0" stroke="#333" stroke-width="1"/>
+                <text x="60" y="63" font-family="Press Start 2P" font-size="6" fill="#333" text-anchor="middle" dominant-baseline="middle">DR</text>
+            </svg>
+            <h1>Welcome to The OSCE Runner!</h1>
+            <p>A pixelated journey to celebrate your amazing achievement!</p>
+            <button class="btn" id="start-game-btn">Start Game</button>
+        </div>
+
+        <!-- Rules Screen -->
+        <div id="rules-screen" class="screen hidden">
+            <h2>Game Rules:</h2>
+            <p>This game simulates your OSCE exam. You'll visit 8 stations on a map.</p>
+            <p><strong>Rule 1:</strong> Click on the next available station on the map to enter.</p>
+            <p><strong>Rule 2:</strong> Complete the task presented in each station before time runs out!</p>
+            <p><strong>Rule 3:</strong> Once the task is done, click "Back to Map" to proceed.</p>
+            <p><strong>Rule 4:</strong> If time runs out, that station won't count towards your correct score.</p>
+            <p>Good luck!</p>
+            <button class="btn" id="continue-rules-btn">Got It!</button>
+        </div>
+
+        <!-- Map Screen -->
+        <div id="map-screen" class="screen hidden">
+            <h2>Your OSCE Journey</h2>
+            <div id="osce-map">
+                <svg id="map-character-svg" class="map-character-svg" viewBox="0 0 100 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <!-- Pixelated Girl Character for Map -->
+                    <!-- Hair -->
+                    <rect x="30" y="0" width="40" height="20" fill="#8B4513"/>
+                    <rect x="25" y="15" width="10" height="20" fill="#8B4513"/>
+                    <rect x="65" y="15" width="10" height="20" fill="#8B4513"/>
+
+                    <!-- Face Area -->
+                    <rect x="38" y="20" width="24" height="28" fill="#fce4ec"/>
+                    <!-- Glasses -->
+                    <rect x="36" y="27" width="8" height="2" fill="#333"/>
+                    <rect x="56" y="27" width="8" height="2" fill="#333"/>
+                    <rect x="44" y="27" width="12" height="2" fill="#333"/>
+                    <!-- Eyes -->
+                    <rect x="40" y="29" width="3" height="3" fill="#000"/>
+                    <rect x="57" y="29" width="3" height="3" fill="#000"/>
+                    <!-- Mouth -->
+                    <rect x="45" y="38" width="10" height="2" fill="#333"/>
+
+                    <!-- Body - Lab Coat -->
+                    <rect x="30" y="48" width="40" height="72" fill="#f0f0f0"/>
+                    <rect x="32" y="50" width="5" height="40" fill="#c0c0c0"/>
+                    <rect x="63" y="50" width="5" height="40" fill="#c0c0c0"/>
+                    <rect x="35" y="50" width="30" height="65" fill="#ffffff"/>
+
+                    <!-- Undershirt -->
+                    <rect x="40" y="48" width="20" height="5" fill="#a5d6a7"/>
+
+                    <!-- Name Tag -->
+                    <rect x="50" y="58" width="20" height="10" fill="#f0f0f0" stroke="#333" stroke-width="1"/>
+                    <text x="60" y="63" font-family="Press Start 2P" font-size="6" fill="#333" text-anchor="middle" dominant-baseline="middle">DR</text>
+                </svg>
+                <!-- Station Markers -->
+                <div class="station-marker" id="station-marker-1" data-station="1" style="top: 20%; left: 10%;">1</div>
+                <div class="station-marker" id="station-marker-2" data-station="2" style="top: 20%; left: 40%;">2</div>
+                <div class="station-marker" id="station-marker-3" data-station="3" style="top: 20%; left: 70%;">3</div>
+                <div class="station-marker" id="station-marker-4" data-station="4" style="top: 50%; left: 10%;">4</div>
+                <div class="station-marker" id="station-marker-5" data-station="5" style="top: 50%; left: 40%;">5</div>
+                <div class="station-marker" id="station-marker-6" data-station="6" style="top: 50%; left: 70%;">6</div>
+                <div class="station-marker" id="station-marker-7" data-station="7" style="top: 80%; left: 25%;">7</div>
+                <div class="station-marker" id="station-marker-8" data-station="8" style="top: 80%; left: 55%;">8</div>
+            </div>
+            <p id="map-instructions">Click on Station <span id="next-station-to-visit">1</span> to begin!</p>
+        </div>
+
+
+        <!-- Game Screen (Stations) -->
+        <div id="game-screen" class="screen hidden">
+            <div class="game-header">
+                <span class="station-info">Station: <span id="current-station">1</span> / 8</span>
+                <span class="timer-info">Time: <span id="timer">30</span>s</span>
+            </div>
+            <svg class="character-svg" viewBox="0 0 100 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <!-- Pixelated Girl Character for Task Screens -->
+                <!-- Hair -->
+                <rect x="30" y="0" width="40" height="20" fill="#8B4513"/>
+                <rect x="25" y="15" width="10" height="20" fill="#8B4513"/>
+                <rect x="65" y="15" width="10" height="20" fill="#8B4513"/>
+
+                <!-- Face Area -->
+                <rect x="38" y="20" width="24" height="28" fill="#fce4ec"/>
+                <!-- Glasses -->
+                <rect x="36" y="27" width="8" height="2" fill="#333"/>
+                <rect x="56" y="27" width="8" height="2" fill="#333"/>
+                <rect x="44" y="27" width="12" height="2" fill="#333"/>
+                <!-- Eyes -->
+                <rect x="40" y="29" width="3" height="3" fill="#000"/>
+                <rect x="57" y="29" width="3" height="3" fill="#000"/>
+                <!-- Mouth -->
+                <rect x="45" y="38" width="10" height="2" fill="#333"/>
+
+                <!-- Body - Lab Coat -->
+                <rect x="30" y="48" width="40" height="72" fill="#f0f0f0"/>
+                <rect x="32" y="50" width="5" height="40" fill="#c0c0c0"/>
+                <rect x="63" y="50" width="5" height="40" fill="#c0c0c0"/>
+                <rect x="35" y="50" width="30" height="65" fill="#ffffff"/>
+
+                <!-- Undershirt -->
+                <rect x="40" y="48" width="20" height="5" fill="#a5d6a7"/>
+
+                <!-- Name Tag -->
+                <rect x="50" y="58" width="20" height="10" fill="#f0f0f0" stroke="#333" stroke-width="1"/>
+                <text x="60" y="63" font-family="Press Start 2P" font-size="6" fill="#333" text-anchor="middle" dominant-baseline="middle">DR</text>
+            </svg>
+            <div id="task-area" class="task-area">
+                <!-- Task content will be dynamically loaded here -->
+            </div>
+            <button class="btn" id="back-to-map-btn" disabled>Back to Map</button>
+        </div>
+
+        <!-- Result Screen -->
+        <div id="result-screen" class="screen hidden">
+            <h1>Exam Finished!</h1>
+            <p>You've completed all stations!</p>
+            <h2>Your Score: <span id="final-score">0</span> / 8 Correctly Completed Stations</h2>
+            <p>Great job!</p>
+            <button class="btn" id="continue-results-btn">Continue</button>
+        </div>
+
+        <!-- Celebration Screen -->
+        <div id="celebration-screen" class="screen hidden">
+            <svg class="character-svg" viewBox="0 0 100 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <!-- Pixelated Girl Character: Lab Coat, Glasses, Name Tag, Smiling -->
+                <!-- Hair -->
+                <rect x="30" y="0" width="40" height="20" fill="#8B4513"/>
+                <rect x="25" y="15" width="10" height="20" fill="#8B4513"/>
+                <rect x="65" y="15" width="10" height="20" fill="#8B4513"/>
+
+                <!-- Face Area -->
+                <rect x="38" y="20" width="24" height="28" fill="#fce4ec"/>
+                <!-- Glasses -->
+                <rect x="36" y="27" width="8" height="2" fill="#333"/>
+                <rect x="56" y="27" width="8" height="2" fill="#333"/>
+                <rect x="44" y="27" width="12" height="2" fill="#333"/>
+                <!-- Smiling Eyes (slightly different pixels) -->
+                <rect x="40" y="29" width="3" height="2" fill="#000"/>
+                <rect x="57" y="29" width="3" height="2" fill="#000"/>
+                <!-- Big Smile (pixelated arc) -->
+                <path d="M40 40 Q50 48 60 40" stroke="#333" stroke-width="2" stroke-linecap="round"/>
+
+                <!-- Body - Lab Coat -->
+                <rect x="30" y="48" width="40" height="72" fill="#f0f0f0"/>
+                <rect x="32" y="50" width="5" height="40" fill="#c0c0c0"/>
+                <rect x="63" y="50" width="5" height="40" fill="#c0c0c0"/>
+                <rect x="35" y="50" width="30" height="65" fill="#ffffff"/>
+
+                <!-- Undershirt -->
+                <rect x="40" y="48" width="20" height="5" fill="#a5d6a7"/>
+
+                <!-- Name Tag -->
+                <rect x="50" y="58" width="20" height="10" fill="#f0f0f0" stroke="#333" stroke-width="1"/>
+                <text x="60" y="63" font-family="Press Start 2P" font-size="6" fill="#333" text-anchor="middle" dominant-baseline="middle">DR</text>
+
+                <!-- Flower Bouquet in hands (pixelated) -->
+                <g transform="translate(60, 85) rotate(15)">
+                    <!-- Flowers (rectangles/squares for pixel feel) -->
+                    <rect x="-4" y="-4" width="8" height="8" fill="#ff69b4"/>
+                    <rect x="6" y="-9" width="8" height="8" fill="#ffd700"/>
+                    <rect x="-14" y="-9" width="8" height="8" fill="#90ee90"/>
+                    <rect x="1" y="6" width="8" height="8" fill="#87cefa"/>
+                    <rect x="-11" y="8" width="8" height="8" fill="#da70d6"/>
+                    <!-- Stems (simple lines) -->
+                    <line x1="0" y1="5" x2="0" y2="25" stroke="#228b22" stroke-width="2" stroke-linecap="round"/>
+                    <line x1="10" y1="0" x2="15" y2="25" stroke="#228b22" stroke-width="2" stroke-linecap="round"/>
+                    <line x1="-10" y1="0" x2="-15" y2="25" stroke="#228b22" stroke-width="2" stroke-linecap="round"/>
+                    <!-- Ribbon (simple block shape) -->
+                    <rect x="-15" y="23" width="30" height="10" fill="#dc143c"/>
+                </g>
+            </svg>
+            <h1 class="osce-tulations-text">The OSCE Runner!</h1>
+            <p>You did it! Congratulations on your amazing success!</p>
+            <button class="btn llm-button" id="get-message-btn">Get a ✨ Personalized Message ✨</button>
+        </div>
+    </div>
+
+    <script>
+        // Global variables for game state
+        let currentStation = 0; // The station number currently being played (1-8)
+        let score = 0; // Number of stations completed correctly
+        let timerInterval;
+        let timeRemaining;
+        let taskCompleted = false; // Flag for current station's task completion
+        let isMoving = false; // Flag to prevent multiple moves/clicks during character animation
+
+        // Map related variables
+        const stationPositions = { // Percentage based positions for station markers
+            1: { top: '20%', left: '10%' },
+            2: { top: '20%', left: '40%' },
+            3: { top: '20%', left: '70%' },
+            4: { top: '50%', left: '10%' },
+            5: { top: '50%', left: '40%' },
+            6: { top: '50%', left: '70%' },
+            7: { top: '80%', left: '25%' },
+            8: { top: '80%', left: '55%' },
+        };
+        // Object to track completion status and score for each station
+        const stationStatus = {}; // { 1: { completed: false, correct: false }, ... }
+        for (let i = 1; i <= 8; i++) {
+            stationStatus[i] = { completed: false, correct: false };
+        }
+
+        // DOM elements
+        const startScreen = document.getElementById('start-screen');
+        const rulesScreen = document.getElementById('rules-screen');
+        const mapScreen = document.getElementById('map-screen');
+        const gameScreen = document.getElementById('game-screen');
+        const resultScreen = document.getElementById('result-screen');
+        const celebrationScreen = document.getElementById('celebration-screen');
+
+        const startGameBtn = document.getElementById('start-game-btn');
+        const continueRulesBtn = document.getElementById('continue-rules-btn');
+        const backToMapBtn = document.getElementById('back-to-map-btn'); // Changed from nextStationBtn
+        const continueResultsBtn = document.getElementById('continue-results-btn');
+        const getMessageBtn = document.getElementById('get-message-btn');
+
+        const currentStationSpan = document.getElementById('current-station');
+        const timerSpan = document.getElementById('timer');
+        const taskArea = document.getElementById('task-area');
+        const finalScoreSpan = document.getElementById('final-score');
+        const mapCharacterSvg = document.getElementById('map-character-svg');
+        const mapInstructions = document.getElementById('map-instructions');
+        const nextStationToVisitSpan = document.getElementById('next-station-to-visit');
+
+
+        // Message Box elements
+        const messageBoxOverlay = document.getElementById('message-box-overlay');
+        const messageBoxTitle = document.getElementById('message-box-title');
+        const messageBoxContent = document.getElementById('message-box-content');
+        const messageBoxOkBtn = document.getElementById('message-box-ok');
+        const messageBoxCancelBtn = document.getElementById('message-box-cancel');
+
+        // Initial character position (just before station 1)
+        let charCurrentX = '0%'; // Start at the left edge
+        let charCurrentY = '20%'; // Aligned with first row of stations
+
+        // --- Utility Functions ---
+
+        /**
+         * Displays a custom message box instead of alert/confirm.
+         * @param {string} title - The title of the message box.
+         * @param {string} message - The message content.
+         * @param {boolean} showCancel - Whether to show a cancel button (makes it a confirm dialog).
+         * @returns {Promise<boolean>} - Resolves true for OK, false for Cancel.
+         */
+        function showMessageBox(title, message, showCancel = false) {
+            return new Promise(resolve => {
+                messageBoxTitle.textContent = title;
+                messageBoxContent.textContent = message;
+                messageBoxCancelBtn.style.display = showCancel ? 'inline-block' : 'none';
+                messageBoxOverlay.classList.add('visible');
+
+                const handleOk = () => {
+                    messageBoxOverlay.classList.remove('visible');
+                    messageBoxOkBtn.removeEventListener('click', handleOk);
+                    messageBoxCancelBtn.removeEventListener('click', handleCancel);
+                    resolve(true);
+                };
+
+                const handleCancel = () => {
+                    messageBoxOverlay.classList.remove('visible');
+                    messageBoxOkBtn.removeEventListener('click', handleOk);
+                    messageBoxCancelBtn.removeEventListener('click', handleCancel);
+                    resolve(false);
+                };
+
+                messageBoxOkBtn.addEventListener('click', handleOk);
+                messageBoxCancelBtn.addEventListener('click', handleCancel);
+            });
+        }
+
+        /**
+         * Switches between different game screens.
+         * @param {HTMLElement} screenToShow - The screen element to make visible.
+         */
+        function showScreen(screenToShow) {
+            [startScreen, rulesScreen, mapScreen, gameScreen, resultScreen, celebrationScreen].forEach(screen => {
+                screen.classList.remove('active');
+                screen.classList.add('hidden');
+            });
+            screenToShow.classList.remove('hidden');
+            screenToShow.classList.add('active');
+        }
+
+        /**
+         * Plays a simple bell sound using Web Audio API.
+         */
+        function playBellSound() {
+            try {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+
+                oscillator.type = 'sine'; // Sine wave for a clean tone
+                oscillator.frequency.setValueAtTime(800, audioContext.currentTime); // Start at 800Hz
+                gainNode.gain.setValueAtTime(0.5, audioContext.currentTime); // Start volume
+
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+
+                oscillator.start();
+
+                // Fade out the sound
+                gainNode.gain.exponentialRampToValueAtTime(0.00001, audioContext.currentTime + 1);
+                oscillator.stop(audioContext.currentTime + 1);
+            } catch (e) {
+                console.error("Web Audio API not supported or error playing sound:", e);
+                showMessageBox("Sound Error", "Could not play bell sound. Your browser might not support the Web Audio API.");
+            }
+        }
+
+        /**
+         * Calls the Gemini API to generate text.
+         * @param {string} promptText - The prompt to send to the LLM.
+         * @returns {Promise<string>} - The generated text or an error message.
+         */
+        async function callGeminiAPI(promptText) {
+            try {
+                let chatHistory = [];
+                chatHistory.push({ role: "user", parts: [{ text: promptText }] });
+                const payload = { contents: chatHistory };
+                const apiKey = ""; // Keep this empty, Canvas will provide it at runtime.
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+
+                if (result.candidates && result.candidates.length > 0 &&
+                    result.candidates[0].content && result.candidates[0].content.parts &&
+                    result.candidates[0].content.parts.length > 0) {
+                    return result.candidates[0].content.parts[0].text;
+                } else {
+                    console.error("Gemini API response structure unexpected:", result);
+                    return "Error: Could not generate response. Please try again.";
+                }
+            } catch (error) {
+                console.error("Error calling Gemini API:", error);
+                return "Error: Failed to connect to the AI. Please check your internet connection.";
+            }
+        }
+
+
+        // --- Game Logic Functions ---
+
+        /**
+         * Starts the timer for the current station.
+         * If timer runs out, task is not considered completed.
+         */
+        function startTimer() {
+            clearInterval(timerInterval); // Clear any existing timer
+            timeRemaining = 30; // 30 seconds per station
+            timerSpan.textContent = timeRemaining;
+            backToMapBtn.disabled = true; // Disable until task is done
+
+            timerInterval = setInterval(() => {
+                timeRemaining--;
+                timerSpan.textContent = timeRemaining;
+
+                if (timeRemaining <= 0) {
+                    clearInterval(timerInterval);
+                    timerSpan.textContent = '0';
+                    // If task was not completed, it's a failed station
+                    if (!taskCompleted) {
+                        stationStatus[currentStation].correct = false; // Mark as incorrect if time runs out
+                        showMessageBox("Time's Up!", "You ran out of time! This station was not completed correctly.", false);
+                    }
+                    backToMapBtn.disabled = false; // Enable to move back to map
+                }
+            }, 1000);
+        }
+
+        /**
+         * Marks the current task as completed and enables the back to map button.
+         */
+        function completeCurrentTask() {
+            if (!taskCompleted) { // Only mark as complete once
+                taskCompleted = true;
+                stationStatus[currentStation].correct = true; // Mark as correct if task is completed
+                backToMapBtn.disabled = false;
+                showMessageBox("Task Complete!", "Great job! You finished the task in time.", false);
+            }
+        }
+
+        /**
+         * Renders the content for a specific station.
+         * @param {number} stationNum - The number of the station to render.
+         */
+        function renderStationTask(stationNum) {
+            currentStation = stationNum;
+            currentStationSpan.textContent = currentStation;
+            taskArea.innerHTML = ''; // Clear previous task
+            taskCompleted = false; // Reset task completion flag
+            backToMapBtn.disabled = true; // Disable back button
+
+            startTimer(); // Start timer for new station
+
+            switch (currentStation) {
+                case 1:
+                    renderClickerTask();
+                    break;
+                case 2:
+                    renderDragAndDropTask();
+                    break;
+                case 3:
+                    renderMultipleChoiceTask();
+                    break;
+                case 4:
+                    renderTypingTask();
+                    break;
+                case 5:
+                    renderOrderClickingTask();
+                    break;
+                case 6:
+                    renderSliderTask();
+                    break;
+                case 7:
+                    renderMovingTargetTask();
+                    break;
+                case 8:
+                    renderMatchingTask();
+                    break;
+                default:
+                    console.error("Invalid station number:", stationNum);
+                    backToMapAndCheckProgress(); // Go back to map if invalid
+                    break;
+            }
+        }
+
+        /**
+         * Updates the map after a station is completed and checks if the game is over.
+         */
+        function backToMapAndCheckProgress() {
+            clearInterval(timerInterval); // Stop timer for current station
+
+            stationStatus[currentStation].completed = true; // Mark station as visited
+
+            // Update character position on map to the station just completed
+            const targetStationPos = stationPositions[currentStation];
+            mapCharacterSvg.style.setProperty('--char-x', targetStationPos.left);
+            mapCharacterSvg.style.setProperty('--char-y', targetStationPos.top);
+            charCurrentX = targetStationPos.left;
+            charCurrentY = targetStationPos.top;
+
+            // Check if all stations are completed
+            let allStationsCompleted = true;
+            let totalCorrectStations = 0;
+            for (let i = 1; i <= 8; i++) {
+                if (!stationStatus[i].completed) {
+                    allStationsCompleted = false;
+                }
+                if (stationStatus[i].correct) {
+                    totalCorrectStations++;
+                }
+            }
+            score = totalCorrectStations; // Update global score
+
+            updateMapDisplay(); // Redraw map markers with new status
+
+            if (allStationsCompleted) {
+                endGame();
+            } else {
+                showScreen(mapScreen);
+                // Update instructions to click next available station
+                let nextUnvisitedStation = -1;
+                for(let i = 1; i <= 8; i++) {
+                    if(!stationStatus[i].completed) {
+                        nextUnvisitedStation = i;
+                        break;
+                    }
+                }
+                if (nextUnvisitedStation !== -1) {
+                    mapInstructions.textContent = `Excellent! Now click on Station ${nextUnvisitedStation}.`;
+                    nextStationToVisitSpan.textContent = nextUnvisitedStation;
+                } else {
+                    mapInstructions.textContent = `All stations visited! Click "Continue" when you're ready.`;
+                }
+
+                isMoving = false; // Allow map interaction again
+            }
+        }
+
+        /**
+         * Redraws station markers on the map based on their completion status.
+         */
+        function updateMapDisplay() {
+            for (let i = 1; i <= 8; i++) {
+                const marker = document.getElementById(`station-marker-${i}`);
+                marker.classList.remove('visited', 'completed-correctly', 'completed-incorrectly', 'disabled');
+
+                if (stationStatus[i].completed) {
+                    marker.classList.add('visited');
+                    if (stationStatus[i].correct) {
+                        marker.classList.add('completed-correctly');
+                    } else {
+                        marker.classList.add('completed-incorrectly');
+                    }
+                }
+
+                // Disable stations that are not the next sequential one to visit or already completed
+                let nextExpectedStation = 1;
+                while (nextExpectedStation <= 8 && stationStatus[nextExpectedStation].completed) {
+                    nextExpectedStation++;
+                }
+
+                if (i === nextExpectedStation && !stationStatus[i].completed) {
+                    marker.classList.remove('disabled'); // Ensure the next available is not disabled
+                    marker.style.cursor = 'pointer';
+                } else if (!stationStatus[i].completed) {
+                    marker.classList.add('disabled'); // Disable if not yet visited and not the next expected
+                    marker.style.cursor = 'not-allowed';
+                }
+            }
+        }
+
+
+        /**
+         * Ends the game, displays results, and transitions to the celebration screen.
+         */
+        function endGame() {
+            clearInterval(timerInterval);
+            playBellSound();
+            finalScoreSpan.textContent = score;
+            showScreen(resultScreen);
+        }
+
+        // --- Task Implementations ---
+
+        // Station 1: Clicker Task
+        function renderClickerTask() {
+            taskArea.innerHTML = `
+                <h2>Station 1: Count the Clicks!</h2>
+                <p>Click the button below until you reach 10 clicks.</p>
+                <button id="clicker-button">Click Me!</button>
+                <p id="click-count">Clicks: 0 / 10</p>
+            `;
+            const clickerButton = document.getElementById('clicker-button');
+            const clickCountSpan = document.getElementById('click-count');
+            let clicks = 0;
+            const requiredClicks = 10;
+
+            const handleClick = () => {
+                if (taskCompleted) return;
+                clicks++;
+                clickCountSpan.textContent = `Clicks: ${clicks} / ${requiredClicks}`;
+                if (clicks >= requiredClicks) {
+                    clickerButton.disabled = true;
+                    clickerButton.removeEventListener('click', handleClick);
+                    completeCurrentTask();
+                }
+            };
+            clickerButton.addEventListener('click', handleClick);
+        }
+
+        // Station 2: Drag and Drop Puzzle Task
+        function renderDragAndDropTask() {
+            taskArea.innerHTML = `
+                <h2>Station 2: Place the Piece!</h2>
+                <p>Drag the square piece into the dashed box.</p>
+                <div id="puzzle-container">
+                    <div id="puzzle-piece">DRAG ME</div>
+                </div>
+            `;
+            const puzzlePiece = document.getElementById('puzzle-piece');
+            const puzzleContainer = document.getElementById('puzzle-container');
+            let isDragging = false;
+            let offsetX, offsetY;
+
+            let containerRect;
+            let pieceRect;
+
+            const updateRects = () => {
+                containerRect = puzzleContainer.getBoundingClientRect();
+                pieceRect = puzzlePiece.getBoundingClientRect();
+            };
+            window.addEventListener('resize', updateRects);
+
+            updateRects();
+
+            const startDrag = (e) => {
+                if (taskCompleted) return;
+                isDragging = true;
+                puzzlePiece.style.cursor = 'grabbing';
+                let clientX, clientY;
+                if (e.touches) {
+                    clientX = e.touches[0].clientX;
+                    clientY = e.touches[0].clientY;
+                } else {
+                    clientX = e.clientX;
+                    clientY = e.clientY;
+                }
+                offsetX = clientX - puzzlePiece.getBoundingClientRect().left;
+                offsetY = clientY - puzzlePiece.getBoundingClientRect().top;
+                e.preventDefault();
+
+                document.addEventListener('mousemove', dragPiece);
+                document.addEventListener('mouseup', stopDrag);
+                document.addEventListener('touchmove', dragPiece, { passive: false });
+                document.addEventListener('touchend', stopDrag);
+            };
+
+            const dragPiece = (e) => {
+                if (!isDragging || taskCompleted) return;
+
+                let clientX, clientY;
+                if (e.touches) {
+                    clientX = e.touches[0].clientX;
+                    clientY = e.touches[0].clientY;
+                } else {
+                    clientX = e.clientX;
+                    clientY = e.clientY;
+                }
+
+                let newLeft = clientX - offsetX - containerRect.left;
+                let newTop = clientY - offsetY - containerRect.top;
+
+                newLeft = Math.max(0, Math.min(newLeft, containerRect.width - pieceRect.width));
+                newTop = Math.max(0, Math.min(newTop, containerRect.height - pieceRect.height));
+
+                puzzlePiece.style.left = `${newLeft}px`;
+                puzzlePiece.style.top = `${newTop}px`;
+
+                if (!taskCompleted) {
+                    completeCurrentTask();
+                }
+                e.preventDefault();
+            };
+
+            const stopDrag = () => {
+                isDragging = false;
+                puzzlePiece.style.cursor = 'grab';
+                document.removeEventListener('mousemove', dragPiece);
+                document.removeEventListener('mouseup', stopDrag);
+                document.removeEventListener('touchmove', dragPiece);
+                document.removeEventListener('touchend', stopDrag);
+                window.removeEventListener('resize', updateRects);
+            };
+
+            puzzlePiece.addEventListener('mousedown', startDrag);
+            puzzlePiece.addEventListener('touchstart', startDrag, { passive: false });
+        }
+
+        // Station 3: Multiple Choice Question
+        function renderMultipleChoiceTask() {
+            const question = "Which organ produces insulin?";
+            const options = ["Liver", "Pancreas", "Kidney", "Stomach"];
+            const correctAnswer = "Pancreas";
+            let selectedOption = null;
+
+            taskArea.innerHTML = `
+                <h2>Station 3: Medical Trivia!</h2>
+                <p>${question}</p>
+                <div class="question-container">
+                    ${options.map((opt, index) => `<button class="mc-option" data-option="${opt}">${opt}</button>`).join('')}
+                </div>
+                <p id="mc-feedback"></p>
+                <button class="btn llm-button" id="explain-concept-btn" disabled>✨ Explain Concept ✨</button>
+            `;
+
+            const mcOptions = taskArea.querySelectorAll('.mc-option');
+            const feedbackElem = document.getElementById('mc-feedback');
+            const explainConceptBtn = document.getElementById('explain-concept-btn');
+
+            const handleOptionClick = (e) => {
+                if (taskCompleted) return;
+
+                mcOptions.forEach(btn => btn.classList.remove('selected', 'correct', 'incorrect'));
+                e.target.classList.add('selected');
+                selectedOption = e.target.dataset.option;
+
+                if (selectedOption === correctAnswer) {
+                    e.target.classList.add('correct');
+                    feedbackElem.textContent = "Correct!";
+                    feedbackElem.style.color = "#28a745";
+                    completeCurrentTask();
+                } else {
+                    e.target.classList.add('incorrect');
+                    feedbackElem.textContent = "Incorrect, try again!";
+                    feedbackElem.style.color = "#dc3545";
+                }
+                explainConceptBtn.disabled = false;
+            };
+
+            mcOptions.forEach(btn => btn.addEventListener('click', handleOptionClick));
+
+            explainConceptBtn.addEventListener('click', async () => {
+                explainConceptBtn.disabled = true;
+                const originalText = explainConceptBtn.textContent;
+                explainConceptBtn.textContent = "Generating...";
+                try {
+                    const prompt = `Explain the medical concept of "${correctAnswer}" in 2-3 sentences, suitable for a medical student.`;
+                    const explanation = await callGeminiAPI(prompt);
+                    showMessageBox(`Explanation: ${correctAnswer}`, explanation);
+                } catch (error) {
+                    showMessageBox("Error", "Failed to get explanation.");
+                } finally {
+                    explainConceptBtn.textContent = originalText;
+                    if (!taskCompleted) {
+                         explainConceptBtn.disabled = false;
+                    }
+                }
+            });
+        }
+
+        // Station 4: Typing Task
+        function renderTypingTask() {
+            const targetWord = "DIAGNOSIS";
+            taskArea.innerHTML = `
+                <h2>Station 4: Type the Term!</h2>
+                <p>Type the medical term shown below:</p>
+                <p id="typing-prompt"><strong>${targetWord}</strong></p>
+                <input type="text" id="typing-input" placeholder="Type here...">
+                <p id="typing-feedback"></p>
+            `;
+
+            const typingInput = document.getElementById('typing-input');
+            const feedbackElem = document.getElementById('typing-feedback');
+
+            const handleTyping = () => {
+                if (taskCompleted) return;
+                const inputValue = typingInput.value.toUpperCase();
+                if (inputValue === targetWord) {
+                    feedbackElem.textContent = "Correct!";
+                    feedbackElem.style.color = "#28a745";
+                    typingInput.disabled = true;
+                    completeCurrentTask();
+                } else if (targetWord.startsWith(inputValue) && inputValue.length > 0) {
+                    feedbackElem.textContent = "Keep going...";
+                    feedbackElem.style.color = "#555";
+                } else if (inputValue.length > 0) {
+                     feedbackElem.textContent = "Incorrect. Try again!";
+                     feedbackElem.style.color = "#dc3545";
+                } else {
+                    feedbackElem.textContent = "";
+                }
+            };
+            typingInput.addEventListener('input', handleTyping);
+            typingInput.focus();
+        }
+
+        // Station 5: Order Clicking Task
+        function renderOrderClickingTask() {
+            const order = ['Alpha', 'Beta', 'Gamma'];
+            let currentOrderIndex = 0;
+
+            taskArea.innerHTML = `
+                <h2>Station 5: Click in Order!</h2>
+                <p>Click the buttons in the correct sequence: <strong>Alpha, Beta, Gamma</strong></p>
+                <div class="order-buttons-container">
+                    <button class="order-button" data-value="Gamma">Gamma</button>
+                    <button class="order-button" data-value="Alpha">Alpha</button>
+                    <button class="order-button" data-value="Beta">Beta</button>
+                </div>
+                <p id="order-feedback"></p>
+            `;
+
+            const buttons = taskArea.querySelectorAll('.order-button');
+            const feedbackElem = document.getElementById('order-feedback');
+
+            buttons.forEach(button => {
+                button.addEventListener('click', (e) => {
+                    if (taskCompleted) return;
+
+                    const clickedValue = e.target.dataset.value;
+                    if (clickedValue === order[currentOrderIndex]) {
+                        e.target.classList.add('correct-click');
+                        e.target.disabled = true;
+                        currentOrderIndex++;
+                        feedbackElem.textContent = "Correct sequence!";
+                        feedbackElem.style.color = "#28a745";
+
+                        if (currentOrderIndex === order.length) {
+                            completeCurrentTask();
+                        }
+                    } else {
+                        feedbackElem.textContent = "Incorrect order! Start over.";
+                        feedbackElem.style.color = "#dc3545";
+                        currentOrderIndex = 0;
+                        buttons.forEach(btn => {
+                            btn.classList.remove('correct-click', 'incorrect-click');
+                            btn.disabled = false;
+                        });
+                    }
+                });
+            });
+        }
+
+        // Station 6: Slider Task
+        function renderSliderTask() {
+            const targetValue = 75;
+            taskArea.innerHTML = `
+                <h2>Station 6: Adjust the Dosage!</h2>
+                <p>Set the slider to exactly <span style="font-weight: bold; color: #1E88E5;">${targetValue}</span> units.</p>
+                <input type="range" id="slider-input" min="0" max="100" value="50">
+                <p id="slider-value">Current Value: 50</p>
+            `;
+
+            const sliderInput = document.getElementById('slider-input');
+            const sliderValueSpan = document.getElementById('slider-value');
+
+            const checkSliderValue = () => {
+                if (taskCompleted) return;
+                const currentValue = parseInt(sliderInput.value);
+                sliderValueSpan.textContent = `Current Value: ${currentValue}`;
+                if (!taskCompleted && currentValue === targetValue) {
+                    completeCurrentTask();
+                }
+            };
+            sliderInput.addEventListener('input', checkSliderValue);
+            checkSliderValue();
+        }
+
+        // Station 7: Moving Target Task
+        function renderMovingTargetTask() {
+            taskArea.innerHTML = `
+                <h2>Station 7: Hit the Target!</h2>
+                <p>Click the red moving target!</p>
+                <div id="target-area">
+                    <div id="moving-target">HIT</div>
+                </div>
+            `;
+
+            const targetArea = document.getElementById('target-area');
+            const movingTarget = document.getElementById('moving-target');
+            let moveInterval;
+
+            const moveTarget = () => {
+                const areaWidth = targetArea.clientWidth - movingTarget.clientWidth;
+                const areaHeight = targetArea.clientHeight - movingTarget.clientHeight;
+
+                const newX = Math.random() * areaWidth;
+                const newY = Math.random() * areaHeight;
+
+                movingTarget.style.left = `${newX}px`;
+                movingTarget.style.top = `${newY}px`;
+            };
+
+            const handleClick = () => {
+                if (!taskCompleted) {
+                    clearInterval(moveInterval);
+                    movingTarget.style.backgroundColor = '#28a745';
+                    movingTarget.textContent = 'HIT!';
+                    movingTarget.style.cursor = 'default';
+                    completeCurrentTask();
+                }
+            };
+
+            movingTarget.addEventListener('click', handleClick);
+            moveInterval = setInterval(moveTarget, 1000);
+            moveTarget();
+
+            // Store the interval ID to clear it when moving to the next station
+            movingTarget._moveIntervalId = moveInterval;
+
+            // Modify `backToMapAndCheckProgress` temporarily for this task to clean up interval
+            const originalBackToMap = backToMapAndCheckProgress;
+            backToMapAndCheckProgress = () => {
+                clearInterval(movingTarget._moveIntervalId); // Clear interval when leaving station
+                movingTarget.removeEventListener('click', handleClick);
+                backToMapAndCheckProgress = originalBackToMap; // Restore original function
+                originalBackToMap();
+            };
+        }
+
+        // Station 8: Matching Task
+        function renderMatchingTask() {
+            const pairs = [
+                { id: 'heart', text: 'Heart', match: 'cardio' },
+                { id: 'kidney', text: 'Kidney', match: 'nephro' },
+                { id: 'brain', text: 'Brain', match: 'neuro' },
+                { id: 'cardio', text: 'Cardiology', match: 'heart' },
+                { id: 'nephro', text: 'Nephrology', match: 'kidney' },
+                { id: 'neuro', text: 'Neurology', match: 'brain' }
+            ];
+            const shuffledPairs = [...pairs].sort(() => Math.random() - 0.5);
+
+            let selectedCards = [];
+            let matchedPairsCount = 0;
+            const totalPairs = pairs.length / 2;
+
+            taskArea.innerHTML = `
+                <h2>Station 8: Match the Concepts!</h2>
+                <p>Match the organ to its related medical field.</p>
+                <div class="matching-container">
+                    ${shuffledPairs.map(item => `<div class="matching-card" data-id="${item.id}" data-match="${item.match}">${item.text}</div>`).join('')}
+                </div>
+                <p id="match-feedback"></p>
+            `;
+
+            const cards = taskArea.querySelectorAll('.matching-card');
+            const feedbackElem = document.getElementById('match-feedback');
+
+            cards.forEach(card => {
+                card.addEventListener('click', () => {
+                    if (taskCompleted || card.classList.contains('matched') || selectedCards.includes(card)) {
+                        return;
+                    }
+
+                    card.classList.add('selected');
+                    selectedCards.push(card);
+
+                    if (selectedCards.length === 2) {
+                        const [card1, card2] = selectedCards;
+                        const id1 = card1.dataset.id;
+                        const id2 = card2.dataset.id;
+                        const match1 = card1.dataset.match;
+                        const match2 = card2.dataset.match;
+
+                        if ((id1 === match2 && id2 === match1) || (id1 === match1 && id2 === match2)) {
+                            feedbackElem.textContent = "Match!";
+                            feedbackElem.style.color = "#28a745";
+                            card1.classList.add('matched');
+                            card2.classList.add('matched');
+                            card1.classList.remove('selected');
+                            card2.classList.remove('selected');
+                            matchedPairsCount++;
+
+                            if (matchedPairsCount === totalPairs) {
+                                completeCurrentTask();
+                            }
+                        } else {
+                            feedbackElem.textContent = "No match. Try again!";
+                            feedbackElem.style.color = "#dc3545";
+                            setTimeout(() => {
+                                card1.classList.remove('selected');
+                                card2.classList.remove('selected');
+                                feedbackElem.textContent = "";
+                            }, 800);
+                        }
+                        selectedCards = [];
+                    }
+                });
+            });
+        }
+
+
+        // --- Event Listeners ---
+
+        startGameBtn.addEventListener('click', () => {
+            showScreen(rulesScreen);
+        });
+
+        continueRulesBtn.addEventListener('click', () => {
+            showScreen(mapScreen);
+            // Set initial character position before the first station
+            mapCharacterSvg.style.setProperty('--char-x', charCurrentX);
+            mapCharacterSvg.style.setProperty('--char-y', charCurrentY);
+            updateMapDisplay(); // Initialize map marker states
+        });
+
+        // Event listener for map station clicks
+        document.querySelectorAll('.station-marker').forEach(marker => {
+            marker.addEventListener('click', () => {
+                if (isMoving) return; // Prevent interaction during movement
+
+                const stationNum = parseInt(marker.dataset.station);
+                let nextExpectedStation = 1;
+                while (nextExpectedStation <= 8 && stationStatus[nextExpectedStation].completed) {
+                    nextExpectedStation++;
+                }
+
+                if (stationNum === nextExpectedStation) { // Only allow clicking the next available station
+                    isMoving = true; // Set moving flag
+                    mapInstructions.textContent = `Traveling to Station ${stationNum}...`;
+                    const targetPos = stationPositions[stationNum];
+
+                    // Animate character to the target station
+                    mapCharacterSvg.style.setProperty('--char-x', targetPos.left);
+                    mapCharacterSvg.style.setProperty('--char-y', targetPos.top);
+
+                    // Wait for the transition to complete before loading the task
+                    mapCharacterSvg.addEventListener('transitionend', function handler() {
+                        mapCharacterSvg.removeEventListener('transitionend', handler);
+                        showScreen(gameScreen);
+                        renderStationTask(stationNum);
+                        isMoving = false; // Reset moving flag after transition and task load
+                    }, { once: true }); // Ensure listener is removed after one use
+
+                } else if (stationStatus[stationNum].completed) {
+                    showMessageBox("Station Visited", `Station ${stationNum} has already been completed.`, false);
+                } else {
+                    showMessageBox("Locked Station", `Please visit Station ${nextExpectedStation} first.`, false);
+                }
+            });
+        });
+
+        backToMapBtn.addEventListener('click', () => {
+            backToMapAndCheckProgress();
+        });
+
+        continueResultsBtn.addEventListener('click', () => {
+            showScreen(celebrationScreen);
+        });
+
+        getMessageBtn.addEventListener('click', async () => {
+            getMessageBtn.disabled = true;
+            const originalText = getMessageBtn.textContent;
+            getMessageBtn.textContent = "Generating Message...";
+            try {
+                const prompt = "Write a short, encouraging, and heartfelt congratulatory message for someone who has just passed a difficult medical OSCE exam. Focus on their hard work, dedication, and bright future in medicine. Make it inspiring and celebratory. Keep it to 3-4 sentences.";
+                const message = await callGeminiAPI(prompt);
+                showMessageBox("✨ Your Personalized Message! ✨", message);
+            } catch (error) {
+                showMessageBox("Error", "Failed to generate message. Please try again.");
+            } finally {
+                getMessageBtn.textContent = originalText;
+                getMessageBtn.disabled = false;
+            }
+        });
+
+        // Initialize the game on window load
+        window.onload = function() {
+            showScreen(startScreen); // Ensure start screen is visible initially
+        };
+
+    </script>
+</body>
+</html>
