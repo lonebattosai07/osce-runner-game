@@ -967,7 +967,7 @@
             </svg>
             <h1 class="osce-tulations-text">The OSCE Runner!</h1>
             <p>You did it! Congratulations on your amazing success!</p>
-            <button class="btn llm-button" id="get-message-btn">Get a ✨ Personalized Message ✨</button>
+            <button class="btn" id="get-message-btn">Click me!</button>
         </div>
     </div>
 
@@ -1112,6 +1112,8 @@
          * @returns {Promise<string>} - The generated text or an error message.
          */
         async function callGeminiAPI(promptText) {
+            // This function is no longer called for the personalized message,
+            // but kept for the "Explain Concept" feature in Station 3.
             try {
                 let chatHistory = [];
                 chatHistory.push({ role: "user", parts: [{ text: promptText }] });
@@ -1166,7 +1168,8 @@
                         stationStatus[currentStation].correct = false; // Mark as incorrect if time runs out
                         showMessageBox("Time's Up!", "You ran out of time! This station was not completed correctly.", false);
                     }
-                    backToMapBtn.disabled = false; // Enable to move back to map
+                    // Automatically return to map if time runs out
+                    backToMapAndCheckProgress();
                 }
             }, 1000);
         }
@@ -1463,7 +1466,7 @@
             const explainConceptBtn = document.getElementById('explain-concept-btn');
 
             const handleOptionClick = (e) => {
-                if (taskCompleted) return;
+                if (taskCompleted) return; // Prevent multiple answers if already correct
 
                 mcOptions.forEach(btn => btn.classList.remove('selected', 'correct', 'incorrect'));
                 e.target.classList.add('selected');
@@ -1473,13 +1476,15 @@
                     e.target.classList.add('correct');
                     feedbackElem.textContent = "Correct!";
                     feedbackElem.style.color = "#28a745";
-                    completeCurrentTask();
+                    completeCurrentTask(); // This sets taskCompleted to true and enables backToMapBtn
                 } else {
                     e.target.classList.add('incorrect');
                     feedbackElem.textContent = "Incorrect, try again!";
                     feedbackElem.style.color = "#dc3545";
+                    // NEW: Always enable back to map button after an answer in Station 3
+                    backToMapBtn.disabled = false;
                 }
-                explainConceptBtn.disabled = false;
+                explainConceptBtn.disabled = false; // Enable explain button after first attempt
             };
 
             mcOptions.forEach(btn => btn.addEventListener('click', handleOptionClick));
@@ -1496,7 +1501,7 @@
                     showMessageBox("Error", "Failed to get explanation.");
                 } finally {
                     explainConceptBtn.textContent = originalText;
-                    if (!taskCompleted) {
+                    if (!taskCompleted) { // Re-enable if task not completed, otherwise it stays disabled for the next station logic
                          explainConceptBtn.disabled = false;
                     }
                 }
@@ -1525,12 +1530,12 @@
                     feedbackElem.style.color = "#28a745";
                     typingInput.disabled = true;
                     completeCurrentTask();
-                } else if (targetWord.startsWith(inputValue) && inputValue.length > 0) {
-                    feedbackElem.textContent = "Keep going...";
-                    feedbackElem.style.color = "#555";
-                } else if (inputValue.length > 0) {
+                } else if (inputValue.length > 0 && !targetWord.startsWith(inputValue)) { /* Changed logic to only show incorrect if it's clearly wrong, not just incomplete */
                      feedbackElem.textContent = "Incorrect. Try again!";
                      feedbackElem.style.color = "#dc3545";
+                } else if (inputValue.length > 0 && targetWord.startsWith(inputValue)) {
+                    feedbackElem.textContent = "Keep going...";
+                    feedbackElem.style.color = "#555";
                 } else {
                     feedbackElem.textContent = "";
                 }
@@ -1793,20 +1798,11 @@
             showScreen(celebrationScreen);
         });
 
-        getMessageBtn.addEventListener('click', async () => {
-            getMessageBtn.disabled = true;
-            const originalText = getMessageBtn.textContent;
-            getMessageBtn.textContent = "Generating Message...";
-            try {
-                const prompt = "Write a short, encouraging, and heartfelt congratulatory message for someone who has just passed a difficult medical OSCE exam. Focus on their hard work, dedication, and bright future in medicine. Make it inspiring and celebratory. Keep it to 3-4 sentences.";
-                const message = await callGeminiAPI(prompt);
-                showMessageBox("✨ Your Personalized Message! ✨", message);
-            } catch (error) {
-                showMessageBox("Error", "Failed to generate message. Please try again.");
-            } finally {
-                getMessageBtn.textContent = originalText;
-                getMessageBtn.disabled = false;
-            }
+        getMessageBtn.addEventListener('click', () => {
+            // Display the personalized message directly
+            const personalizedMessage = "OSCE-tulations sayanggg! I always knew you had it in you, and I can't be more proud of what you’ve achieved so far! I love you and keep on doing what you’re doing okay? Keep being the brightest girl in the world. Love, Zafa";
+            showMessageBox("✨ Your Personalized Message! ✨", personalizedMessage);
+            // No need for loading states or disabling as it's an immediate, static message.
         });
 
         // Initialize the game on window load
